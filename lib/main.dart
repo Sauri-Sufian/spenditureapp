@@ -1,14 +1,26 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
 import './widget/new_transaction.dart';
 import './models/transaction.dart';
 import './widget/items_list.dart';
 import './widget/chart.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  /* WidgetsFlutterBinding.ensureInitialized();
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]); */
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    print('build home page state');
     return MaterialApp(
       title: 'Budget App',
       theme: ThemeData(
@@ -45,7 +57,7 @@ class _BudgetAppState extends State<BudgetApp> {
       date: DateTime.now(),
     ),
   ];
-
+  bool _showChart = false;
   List<Transaction> get _recentTranscations {
     return _userTransactions.where(
       (tx) {
@@ -93,39 +105,92 @@ class _BudgetAppState extends State<BudgetApp> {
     });
   }
 
+  Widget _buildLandscapeContent() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        Text('Show chart'),
+        Switch.adaptive(
+            value: _showChart,
+            onChanged: (val) {
+              setState(() {
+                _showChart = val;
+              });
+            })
+      ],
+    );
+  }
+
+  List<Widget> _buildPortraitContent(AppBar appBar, Widget txList) {
+    return [
+      Container(
+        height: (MediaQuery.of(context).size.height -
+                appBar.preferredSize.height -
+                MediaQuery.of(context).padding.top) *
+            0.3,
+        child: Chart(
+          recentTransactions: _recentTranscations,
+        ),
+      ),
+      txList
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          "Budget App",
-        ),
-        actions: <Widget>[
-          IconButton(
-            icon: Icon(Icons.add),
-            onPressed: () => _triggerAddNewTransaction(context),
-          ),
-        ],
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
+    final appBar = AppBar(
+      title: Text(
+        "Budget App",
       ),
+      actions: <Widget>[
+        IconButton(
+          icon: Icon(Icons.add),
+          onPressed: () => _triggerAddNewTransaction(context),
+        ),
+      ],
+    );
+    final txList = Container(
+      height: (MediaQuery.of(context).size.height -
+              appBar.preferredSize.height -
+              MediaQuery.of(context).padding.top) *
+          0.7,
+      child: ItemList(
+        transaction: _userTransactions,
+        deleteTx: _deleteTransaction,
+      ),
+    );
+    return Scaffold(
+      appBar: appBar,
       body: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Chart(
-              recentTransactions: _recentTranscations,
-            ),
-            ItemList(
-              transaction: _userTransactions,
-              deleteTx: _deleteTransaction,
-            ),
+            if (isLandscape) _buildLandscapeContent(),
+            if (!isLandscape) ..._buildPortraitContent(appBar, txList),
+            if (isLandscape)
+              _showChart
+                  ? Container(
+                      height: (MediaQuery.of(context).size.height -
+                              appBar.preferredSize.height -
+                              MediaQuery.of(context).padding.top) *
+                          0.7,
+                      child: Chart(
+                        recentTransactions: _recentTranscations,
+                      ),
+                    )
+                  : txList
           ],
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _triggerAddNewTransaction(context),
-        child: Icon(Icons.add),
-      ),
+      floatingActionButton: Platform.isIOS
+          ? Container()
+          : FloatingActionButton(
+              onPressed: () => _triggerAddNewTransaction(context),
+              child: Icon(Icons.add),
+            ),
     );
   }
 }
